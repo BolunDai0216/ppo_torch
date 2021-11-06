@@ -7,20 +7,6 @@ from mlp import mlp
 
 
 class Actor(torch.nn.Module):
-    def __init__(
-        self,
-        obs_dim: int,
-        act_dim: int,
-        hidden_dim: list(),
-        activations: list(),
-        lr: float,
-    ):
-        self.obs_dim = obs_dim
-        self.act_dim = act_dim
-        self.feature_sizes = [self.obs_dim] + hidden_dim + [self.act_dim]
-        self.activations = activations
-        self.model = mlp(self.feature_sizes, self.activations)
-
     def forward(self, obs: torch.Tensor, act: torch.Tensor = None) -> torch.Tensor:
         pi = self._distribution(obs)
         log_prob = None
@@ -46,14 +32,19 @@ class ActorContinuous(Actor):
         act_dim: int,
         hidden_dim: list(),
         activations: list(),
-        lr: float,
     ):
         super().__init__()
+        self.obs_dim = obs_dim
+        self.act_dim = act_dim
+        self.feature_sizes = [self.obs_dim] + hidden_dim + [self.act_dim]
+        self.activations = activations
+        self.net = mlp(self.feature_sizes, self.activations)
+
         log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
         self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
 
     def _distribution(self, obs: torch.Tensor) -> torch.distributions.Distribution:
-        mean = self.model(obs)
+        mean = self.net(obs)
         std = torch.exp(self.log_std)
         distribution = Normal(mean, std)
 
@@ -74,12 +65,16 @@ class ActorDiscrete(Actor):
         act_dim: int,
         hidden_dim: list(),
         activations: list(),
-        lr: float,
     ):
         super().__init__()
+        self.obs_dim = obs_dim
+        self.act_dim = act_dim
+        self.feature_sizes = [self.obs_dim] + hidden_dim + [self.act_dim]
+        self.activations = activations
+        self.net = mlp(self.feature_sizes, self.activations)
 
     def _distribution(self, obs: torch.Tensor) -> torch.distributions.Distribution:
-        logits = self.model(obs)
+        logits = self.net(obs)
         distribution = Categorical(logits=logits)
 
         return distribution
