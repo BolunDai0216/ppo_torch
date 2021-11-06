@@ -1,9 +1,8 @@
 import numpy as np
 import torch
-from torch.distributions.categorical import Categorical
-from torch.distributions.normal import Normal
 
 from mlp import mlp
+
 
 class Critic(torch.nn.Module):
     def __init__(
