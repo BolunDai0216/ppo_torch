@@ -19,6 +19,8 @@ class Train:
         critic_hidden_dim=[64, 64],
         actor_activations=[nn.Tanh, nn.Tanh, nn.Tanh],
         critic_activations=[nn.Tanh, nn.Tanh, nn.Tanh],
+        actor_update_iters=80,
+        critic_update_iters=80,
     ):
         if isinstance(env.action_space, Box):
             continuous_env = True
@@ -41,9 +43,11 @@ class Train:
 
         self.env = env
         self.device = device
-        # self.max_size = self.env._max_episode_steps
-        self.max_size = 10
+        self.max_size = self.env._max_episode_steps
         self.buffer = ReplayBuffer(self.obs_dim, self.act_dim, self.max_size, device)
+
+        self.actor_update_iters = actor_update_iters
+        self.critic_update_iters = critic_update_iters
 
     def evaluate(self):
         pass
@@ -69,24 +73,42 @@ class Train:
             episode_reward += reward
 
             # store experience in buffer
-            reward_tensor = self.reward_manip(reward)
-            self.buffer.add(state, action, reward_tensor, value, logp_a)
+            value_np = self.value_manip(value)
+            self.buffer.add(state, action, reward, value_np, logp_a)
 
             # update state
             state = next_state
 
             if done:
                 if t == self.max_size - 1:
-                    last_v = value = self.ppo.get_value(state)[0, 0]
+                    state = self.state_manip(state)
+                    last_v = self.ppo.get_value(state)[0, 0]
+                    last_v = self.value_manip(last_v)
                 else:
-                    last_v = 0
+                    last_v = 0.0
 
                 self.buffer.end_of_episode(last_val=last_v)
 
         return episode_reward
 
     def update(self):
-        pass
+        for i in range(self.actor_update_iters):
+            self.ppo.actor_opt.zero_grad()
+            data = self.buffer.sample()
+            loss_pi, pi_info = self.ppo.actor_loss(data)
+            kl = pi_info["kl"]
+
+            if kl > 1.5 * self.ppo.target_kl:
+                break
+            loss_pi.backward()
+            self.ppo.actor_opt.step()
+
+        for j in range(self.critic_update_iters):
+            self.ppo.critic_opt.zero_grad()
+            data = self.buffer.sample()
+            loss_vf = self.ppo.critic_loss(data)
+            loss_vf.backward()
+            self.ppo.critic_opt.step()
 
     def state_manip(self, state: np.ndarray) -> torch.Tensor:
         _state = state.reshape(1, -1)
@@ -100,19 +122,20 @@ class Train:
 
         return action
 
-    def reward_manip(self, reward: float) -> torch.Tensor:
-        _reward = torch.as_tensor(reward, dtype=torch.float32)
-        reward = _reward.to(device=self.device, non_blocking=True)
+    def value_manip(self, value: torch.Tensor) -> float:
+        value = value.cpu().item()
 
-        return reward
+        return value
 
 
 def main():
     env = gym.make("Walker2d-v2")
     device = "cuda:2"
     agent = Train(env, device)
-    reward = agent.play()
-    print(f"reward: {reward}")
+    for i in range(10):
+        reward = agent.play()
+        agent.update()
+        print(f"i, reward: {reward}")
 
 
 if __name__ == "__main__":

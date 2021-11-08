@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.signal
 import torch
+from pdb import set_trace
 
 
 class ReplayBuffer:
@@ -27,9 +28,6 @@ class ReplayBuffer:
         self.act_buf = torch.zeros(max_size, act_dim, dtype=torch.float32).to(
             device=device, non_blocking=True
         )
-        self.val_buf = torch.zeros(max_size, dtype=torch.float32).to(
-            device=device, non_blocking=True
-        )
         self.logp_buf = torch.zeros(max_size, dtype=torch.float32).to(
             device=device, non_blocking=True
         )
@@ -39,9 +37,9 @@ class ReplayBuffer:
         self.ret_buf = torch.zeros(max_size, dtype=torch.float32).to(
             device=device, non_blocking=True
         )
-        self.rew_buf = torch.zeros(max_size, dtype=torch.float32).to(
-            device=device, non_blocking=True
-        )
+
+        self.rew_buf = np.zeros(max_size, dtype=np.float32)
+        self.val_buf = np.zeros(max_size, dtype=np.float32)
 
         self.gamma = gamma
         self.lam = lam
@@ -49,6 +47,7 @@ class ReplayBuffer:
         self.ptr = 0
         self.path_start_idx = 0
         self.max_size = max_size
+        self.device = device
 
     def add(
         self, obs: torch.Tensor, act: torch.Tensor, rew: float, val: float, logp: float
@@ -79,18 +78,22 @@ class ReplayBuffer:
         This allows us to bootstrap the reward-to-go calculation to account
         for timesteps beyond the arbitrary episode horizon (or epoch cutoff).
         """
-
         path_slice = slice(self.path_start_idx, self.ptr)
         rews = np.append(self.rew_buf[path_slice], last_val)
         vals = np.append(self.val_buf[path_slice], last_val)
 
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        self.adv_buf[path_slice] = discount_cumsum(deltas, self.gamma * self.lam)
+        adv_slice = discount_cumsum(deltas, self.gamma * self.lam)
+        self.adv_buf[path_slice] = torch.as_tensor(adv_slice.copy()).to(
+            device=self.device, non_blocking=True
+        )
 
         # the next line computes rewards-to-go, to be targets for the value function
-        self.ret_buf[path_slice] = discount_cumsum(rews, self.gamma)[:-1]
-
+        ret_slice = discount_cumsum(rews, self.gamma)[:-1]
+        self.ret_buf[path_slice] = torch.as_tensor(ret_slice.copy()).to(
+            device=self.device, non_blocking=True
+        )
         self.path_start_idx = self.ptr
 
     def sample(self):
@@ -99,23 +102,22 @@ class ReplayBuffer:
         the buffer, with advantages appropriately normalized (shifted to have
         mean zero and std one). Also, resets some pointers in the buffer.
         """
-        assert self.ptr == self.max_size  # buffer has to be full before you can get
         self.ptr, self.path_start_idx = 0, 0
 
         # the next two lines implement the advantage normalization trick
-        adv_mean = np.mean(self.adv_buf)
-        adv_std = np.std(self.adv_buf)
+        adv_mean = torch.mean(self.adv_buf)
+        adv_std = torch.std(self.adv_buf)
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
         data = dict(
-            obs=self.obs_buf,
-            act=self.act_buf,
-            ret=self.ret_buf,
-            adv=self.adv_buf,
-            logp=self.logp_buf,
+            obs=self.obs_buf.detach(),
+            act=self.act_buf.detach(),
+            ret=self.ret_buf.detach(),
+            adv=self.adv_buf.detach(),
+            logp=self.logp_buf.detach(),
         )
 
-        return {k: torch.as_tensor(v, dtype=torch.float32) for k, v in data.items()}
+        return data
 
 
 def discount_cumsum(x, discount):

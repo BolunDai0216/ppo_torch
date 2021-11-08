@@ -48,7 +48,7 @@ class ActorContinuous(Actor):
 
         log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
         log_std = torch.nn.Parameter(torch.as_tensor(log_std))
-        self.std = torch.exp(log_std).to(device=device, non_blocking=True)
+        self.std = torch.exp(log_std).to(device=device, non_blocking=True).detach()
 
     def _distribution(self, obs: torch.Tensor) -> torch.distributions.Distribution:
         mean = self.net(obs)

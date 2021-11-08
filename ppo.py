@@ -4,6 +4,7 @@ import torch
 
 from actor import ActorContinuous, ActorDiscrete
 from critic import Critic
+from torch.optim import Adam
 
 
 class PPO:
@@ -18,6 +19,9 @@ class PPO:
         device: str,
         continuous: bool = False,
         clip_ratio: float = 0.2,
+        target_kl: float = 0.01,
+        actor_lr: float = 3e-4,
+        critic_lr: float = 1e-3,
     ):
         self.critic = Critic(obs_dim, critic_hidden_dim, critic_activations, device)
 
@@ -31,6 +35,10 @@ class PPO:
             )
 
         self.clip_ratio = clip_ratio
+        self.target_kl = target_kl
+
+        self.actor_opt = Adam(self.actor.net.parameters(), lr=actor_lr)
+        self.critic_opt = Adam(self.critic.net.parameters(), lr=critic_lr)
 
     def get_action(self, obs: torch.Tensor) -> torch.Tensor:
         policy, _ = self.actor(obs)
@@ -44,7 +52,7 @@ class PPO:
 
         return value
 
-    def update_actor(self, data: dict) -> (torch.Tensor, dict):
+    def actor_loss(self, data: dict) -> (torch.Tensor, dict):
         obs, act, adv, logp_old = data["obs"], data["act"], data["adv"], data["logp"]
 
         # Policy loss
@@ -62,5 +70,8 @@ class PPO:
 
         return loss_pi, pi_info
 
-    def update_critic(self, data: dict):
-        pass
+    def critic_loss(self, data: dict):
+        obs, ret = data["obs"], data["ret"]
+        loss_vf = ((self.critic(obs) - ret) ** 2).mean()
+
+        return loss_vf
