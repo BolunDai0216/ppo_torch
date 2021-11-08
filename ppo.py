@@ -40,6 +40,24 @@ class PPO:
         self.actor_opt = Adam(self.actor.net.parameters(), lr=actor_lr)
         self.critic_opt = Adam(self.critic.net.parameters(), lr=critic_lr)
 
+    def save(self, path: str):
+        torch.save(
+            {
+                "actor_state_dict": self.actor.state_dict(),
+                "critic_state_dict": self.critic.state_dict(),
+                "actor_opt_state_dict": self.actor_opt.state_dict(),
+                "critic_opt_state_dict": self.critic_opt.state_dict(),
+            },
+            path,
+        )
+
+    def load(self, path: str):
+        checkpoint = torch.load(path)
+        self.actor.load_state_dict(checkpoint["actor_state_dict"])
+        self.critic.load_state_dict(checkpoint["critic_state_dict"])
+        self.actor_opt.load_state_dict(checkpoint["actor_opt_state_dict"])
+        self.critic_opt.load_state_dict(checkpoint["critic_opt_state_dict"])
+
     def get_action(self, obs: torch.Tensor) -> torch.Tensor:
         policy, _ = self.actor(obs)
         action = policy.sample()

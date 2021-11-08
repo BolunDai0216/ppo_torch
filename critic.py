@@ -1,3 +1,5 @@
+from pdb import set_trace
+
 import numpy as np
 import torch
 
@@ -16,5 +18,6 @@ class Critic(torch.nn.Module):
 
     def forward(self, obs: torch.Tensor) -> torch.Tensor:
         val = self.net(obs)
+        val = torch.squeeze(val, -1)
 
         return val

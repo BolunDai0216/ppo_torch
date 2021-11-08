@@ -1,7 +1,11 @@
+from datetime import datetime
+from pathlib import Path
 from pdb import set_trace
+from time import time
 
 import gym
 import numpy as np
+import tensorflow as tf
 import torch
 from gym.spaces import Box, Discrete
 from torch import nn
@@ -15,19 +19,22 @@ class Train:
         self,
         env,
         device,
+        name,
         actor_hidden_dim=[64, 64],
         critic_hidden_dim=[64, 64],
         actor_activations=[nn.Tanh, nn.Tanh, nn.Tanh],
         critic_activations=[nn.Tanh, nn.Tanh, nn.Tanh],
         actor_update_iters=80,
         critic_update_iters=80,
+        epoch_num=10000,
     ):
         if isinstance(env.action_space, Box):
             continuous_env = True
+            self.act_dim = env.action_space.shape[0]
         elif isinstance(env.action_space, Discrete):
             continuous_env = False
+            self.act_dim = env.action_space.n
 
-        self.act_dim = env.action_space.shape[0]
         self.obs_dim = env.observation_space.shape[0]
 
         self.ppo = PPO(
@@ -49,11 +56,35 @@ class Train:
         self.actor_update_iters = actor_update_iters
         self.critic_update_iters = critic_update_iters
 
+        self.name = name
+        self.stamp = datetime.fromtimestamp(time()).strftime("%Y%m%d-%H%M%S")
+        Path("trained_models/{}/{}".format(self.name, self.stamp)).mkdir(
+            parents=True, exist_ok=True
+        )
+        self.epoch_num = epoch_num
+
     def evaluate(self):
         pass
 
     def train(self):
-        pass
+        train_log_dir = "logs/" + self.name + "/" + self.stamp + "/train"
+        train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+
+        for i in range(self.epoch_num):
+            with torch.no_grad():
+                reward = self.play()
+            loss_pi, loss_vf = self.update()
+
+            if (i + 1) % 2 == 0:
+                filename = "trained_models/{}/{}/model_{}.pth".format(
+                    self.name, self.stamp, i + 1
+                )
+                self.ppo.save(filename)
+
+            with train_summary_writer.as_default():
+                tf.summary.scalar("Reward", reward, step=i)
+                tf.summary.scalar("Actor Loss", loss_pi, step=i)
+                tf.summary.scalar("Critic Loss", loss_vf, step=i)
 
     def play(self, render=False) -> float:
         state = self.env.reset()
@@ -66,7 +97,7 @@ class Train:
             # make state tensor have correct shape and move to device
             state = self.state_manip(state)
             action, logp_a = self.ppo.get_action(state)
-            value = self.ppo.get_value(state)[0, 0]
+            value = self.ppo.get_value(state)
 
             action_np = self.action_manip(action)
             next_state, reward, done, _ = self.env.step(action_np)
@@ -82,7 +113,7 @@ class Train:
             if done:
                 if t == self.max_size - 1:
                     state = self.state_manip(state)
-                    last_v = self.ppo.get_value(state)[0, 0]
+                    last_v = self.ppo.get_value(state)
                     last_v = self.value_manip(last_v)
                 else:
                     last_v = 0.0
@@ -110,6 +141,8 @@ class Train:
             loss_vf.backward()
             self.ppo.critic_opt.step()
 
+        return loss_pi.detach().cpu().item(), loss_vf.detach().cpu().item()
+
     def state_manip(self, state: np.ndarray) -> torch.Tensor:
         _state = state.reshape(1, -1)
         _state = torch.as_tensor(_state, dtype=torch.float32)
@@ -129,13 +162,11 @@ class Train:
 
 
 def main():
-    env = gym.make("Walker2d-v2")
+    env = gym.make("Reacher-v2")
+    # env = gym.make("CartPole-v1")
     device = "cuda:2"
-    agent = Train(env, device)
-    for i in range(10):
-        reward = agent.play()
-        agent.update()
-        print(f"i, reward: {reward}")
+    agent = Train(env, device, name="reacherv2")
+    agent.train()
 
 
 if __name__ == "__main__":
