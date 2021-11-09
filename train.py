@@ -48,7 +48,7 @@ class Train:
 
         self.env = env
         self.max_size = self.env._max_episode_steps
-        self.buffer = ReplayBuffer(self.obs_dim, self.act_dim, self.max_size)
+        self.buffer = ReplayBuffer(self.obs_dim, self.act_dim, 4 * self.max_size)
 
         self.actor_update_iters = actor_update_iters
         self.critic_update_iters = critic_update_iters
@@ -60,15 +60,19 @@ class Train:
         )
         self.epoch_num = epoch_num
 
-    def evaluate(self):
-        pass
-
     def train(self):
         train_log_dir = "logs/" + self.name + "/" + self.stamp + "/train"
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
+        len_sum = 0
+
         for i in range(self.epoch_num):
-            reward = self.play()
+            while True:
+                reward, buffer_full = self.play()
+
+                if buffer_full:
+                    break
+
             loss_pi, loss_vf = self.update()
 
             if (i + 1) % 1000 == 0:
@@ -87,6 +91,7 @@ class Train:
     def play(self, render=False):
         state = self.env.reset()
         episode_reward = 0
+        buffer_full = False
 
         for t in range(self.max_size):
             if render:
@@ -105,27 +110,34 @@ class Train:
             # update state
             state = next_state
 
+            if self.buffer.ptr == self.buffer.max_size:
+                buffer_full = True
+                break
+
             if done:
-                if t == self.max_size - 1:
-                    last_v = self.ppo.get_value(state)
-                else:
-                    last_v = 0.0
+                break
 
-                self.buffer.end_of_episode(last_val=last_v)
+        if buffer_full or t == self.max_size - 1:
+            last_v = self.ppo.get_value(state)
+        else:
+            last_v = 0.0
 
-        return episode_reward
+        self.buffer.end_of_episode(last_val=last_v)
+
+        return episode_reward, buffer_full
 
     def update(self):
         data = self.buffer.sample()
 
         for i in range(self.actor_update_iters):
             self.ppo.actor_opt.zero_grad()
-            loss_pi, pi_info = self.ppo.actor_loss(data)
-            kl = pi_info["kl"]
+            loss_pi, kl = self.ppo.actor_loss(data)
             if kl > 1.5 * self.ppo.target_kl:
                 break
             loss_pi.backward()
             self.ppo.actor_opt.step()
+
+        # print(f"Actor has been updated {i} times, the KL is {kl}")
 
         for j in range(self.critic_update_iters):
             self.ppo.critic_opt.zero_grad()
@@ -137,8 +149,11 @@ class Train:
 
 
 def main():
-    env = gym.make("Reacher-v2")
-    agent = Train(env, name="reacherv2")
+    # env = gym.make("Reacher-v2")
+    # agent = Train(env, name="reacherv2")
+
+    env = gym.make("LunarLanderContinuous-v2")
+    agent = Train(env, name="lunarv2")
 
     # env = gym.make("Pendulum-v1")
     # agent = Train(env, name="pendulumv1")

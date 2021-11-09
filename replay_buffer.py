@@ -81,6 +81,7 @@ class ReplayBuffer:
         the buffer, with advantages appropriately normalized (shifted to have
         mean zero and std one). Also, resets some pointers in the buffer.
         """
+        assert self.ptr == self.max_size
         self.ptr, self.path_start_idx = 0, 0
 
         # the next two lines implement the advantage normalization trick

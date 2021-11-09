@@ -43,10 +43,9 @@ class ActorContinuous(Actor):
         self.activations = activations
         self.net = mlp(self.feature_sizes, self.activations)
 
-        std = 0.2 * np.ones(act_dim, dtype=np.float32)
+        std = 0.04 * np.ones(act_dim, dtype=np.float32)
         std = torch.as_tensor(std)
         self.cov_mat = torch.diag(std).detach()
-        set_trace()
 
     def _distribution(self, obs):
         mean = self.net(obs)

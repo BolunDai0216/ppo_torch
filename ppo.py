@@ -78,21 +78,18 @@ class PPO:
 
         # Policy loss
         pi, logp = self.actor(obs, act)
-        ratio = torch.exp(logp - logp_old)
+        ratio = torch.exp(logp - logp_old.detach())
         clip_adv = torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
 
         # Useful extra info
         approx_kl = (logp_old - logp).mean().item()
-        ent = pi.entropy().mean().item()
-        clipped = ratio.gt(1 + self.clip_ratio) | ratio.lt(1 - self.clip_ratio)
-        clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
-        pi_info = dict(kl=approx_kl, ent=ent, cf=clipfrac)
+        # set_trace()
 
-        return loss_pi, pi_info
+        return loss_pi, approx_kl
 
     def critic_loss(self, data):
         obs, ret = data["obs"], data["ret"]
-        loss_vf = ((self.critic(obs) - ret) ** 2).mean()
+        loss_vf = ((self.critic(obs).squeeze() - ret.detach()) ** 2).mean()
 
         return loss_vf
