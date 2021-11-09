@@ -3,63 +3,59 @@ from pdb import set_trace
 import numpy as np
 import torch
 from torch.distributions.categorical import Categorical
+from torch.distributions.multivariate_normal import MultivariateNormal
 from torch.distributions.normal import Normal
 
 from mlp import mlp
 
 
 class Actor(torch.nn.Module):
-    def forward(self, obs: torch.Tensor, act: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, obs, act=None):
         pi = self._distribution(obs)
-        log_prob = None
 
         if act is not None:
             # used only during gradient calculation
             log_prob = self._log_prob_from_distribution(pi, act)
+        else:
+            log_prob = None
 
         return pi, log_prob
 
-    def _distribution(self, obs: torch.Tensor) -> torch.distributions.Distribution:
+    def _distribution(self, obs):
         raise NotImplementedError
 
-    def _log_prob_from_distribution(
-        self, obs: torch.Tensor, act: torch.Tensor
-    ) -> torch.Tensor:
+    def _log_prob_from_distribution(self, obs, act):
         raise NotImplementedError
 
 
 class ActorContinuous(Actor):
     def __init__(
         self,
-        obs_dim: int,
-        act_dim: int,
-        hidden_dim: list,
-        activations: list,
-        device: str,
+        obs_dim,
+        act_dim,
+        hidden_dim,
+        activations,
     ):
         super().__init__()
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self.feature_sizes = [self.obs_dim] + hidden_dim + [self.act_dim]
         self.activations = activations
-        self.net = mlp(self.feature_sizes, self.activations).to(
-            device=device, dtype=torch.float32, non_blocking=True
-        )
+        self.net = mlp(self.feature_sizes, self.activations)
 
-        log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
-        log_std = torch.nn.Parameter(torch.as_tensor(log_std))
-        self.std = torch.exp(log_std).to(device=device, non_blocking=True).detach()
+        std = 0.2 * np.ones(act_dim, dtype=np.float32)
+        std = torch.as_tensor(std)
+        self.cov_mat = torch.diag(std).detach()
+        set_trace()
 
-    def _distribution(self, obs: torch.Tensor) -> torch.distributions.Distribution:
+    def _distribution(self, obs):
         mean = self.net(obs)
-        distribution = Normal(mean, self.std)
+        distribution = MultivariateNormal(mean, self.cov_mat)
 
         return distribution
 
-    def _log_prob_from_distribution(
-        self, pi: torch.distributions.Distribution, act: torch.Tensor
-    ) -> torch.Tensor:
-        log_prob = pi.log_prob(act).sum(axis=-1)
+    def _log_prob_from_distribution(self, pi, act):
+        log_prob = pi.log_prob(act)
 
         return log_prob
 
@@ -67,30 +63,25 @@ class ActorContinuous(Actor):
 class ActorDiscrete(Actor):
     def __init__(
         self,
-        obs_dim: int,
-        act_dim: int,
-        hidden_dim: list,
-        activations: list,
-        device: str,
+        obs_dim,
+        act_dim,
+        hidden_dim,
+        activations,
     ):
         super().__init__()
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self.feature_sizes = [self.obs_dim] + hidden_dim + [self.act_dim]
         self.activations = activations
-        self.net = mlp(self.feature_sizes, self.activations).to(
-            device=device, dtype=torch.float32, non_blocking=True
-        )
+        self.net = mlp(self.feature_sizes, self.activations)
 
-    def _distribution(self, obs: torch.Tensor) -> torch.distributions.Distribution:
+    def _distribution(self, obs):
         logits = self.net(obs)
         distribution = Categorical(logits=logits)
 
         return distribution
 
-    def _log_prob_from_distribution(
-        self, pi: torch.distributions.Distribution, act: torch.Tensor
-    ) -> torch.Tensor:
+    def _log_prob_from_distribution(self, pi, act):
         log_prob = pi.log_prob(act)
 
         return log_prob

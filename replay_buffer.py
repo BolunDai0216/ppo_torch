@@ -15,29 +15,17 @@ class ReplayBuffer:
 
     def __init__(
         self,
-        obs_dim: int,
-        act_dim: int,
-        max_size: int,
-        device: str,
-        gamma: float = 0.99,
-        lam: float = 0.95,
+        obs_dim,
+        act_dim,
+        max_size,
+        gamma=0.99,
+        lam=0.95,
     ):
-        self.obs_buf = torch.zeros(max_size, obs_dim, dtype=torch.float32).to(
-            device=device, non_blocking=True
-        )
-        self.act_buf = torch.zeros(max_size, act_dim, dtype=torch.float32).to(
-            device=device, non_blocking=True
-        )
-        self.logp_buf = torch.zeros(max_size, dtype=torch.float32).to(
-            device=device, non_blocking=True
-        )
-        self.adv_buf = torch.zeros(max_size, dtype=torch.float32).to(
-            device=device, non_blocking=True
-        )
-        self.ret_buf = torch.zeros(max_size, dtype=torch.float32).to(
-            device=device, non_blocking=True
-        )
-
+        self.obs_buf = np.zeros((max_size, obs_dim), dtype=np.float32)
+        self.act_buf = np.zeros((max_size, act_dim), dtype=np.float32)
+        self.logp_buf = np.zeros(max_size, dtype=np.float32)
+        self.adv_buf = np.zeros(max_size, dtype=np.float32)
+        self.ret_buf = np.zeros(max_size, dtype=np.float32)
         self.rew_buf = np.zeros(max_size, dtype=np.float32)
         self.val_buf = np.zeros(max_size, dtype=np.float32)
 
@@ -47,11 +35,8 @@ class ReplayBuffer:
         self.ptr = 0
         self.path_start_idx = 0
         self.max_size = max_size
-        self.device = device
 
-    def add(
-        self, obs: torch.Tensor, act: torch.Tensor, rew: float, val: float, logp: float
-    ):
+    def add(self, obs, act, rew, val, logp):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
@@ -63,7 +48,7 @@ class ReplayBuffer:
         self.logp_buf[self.ptr] = logp
         self.ptr += 1
 
-    def end_of_episode(self, last_val: float = 0):
+    def end_of_episode(self, last_val=0):
         """
         Call this at the end of a trajectory, or when one gets cut off
         by an epoch ending. This looks back in the buffer to where the
@@ -84,16 +69,10 @@ class ReplayBuffer:
 
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        adv_slice = discount_cumsum(deltas, self.gamma * self.lam)
-        self.adv_buf[path_slice] = torch.as_tensor(adv_slice.copy()).to(
-            device=self.device, non_blocking=True
-        )
+        self.adv_buf[path_slice] = discount_cumsum(deltas, self.gamma * self.lam)
 
         # the next line computes rewards-to-go, to be targets for the value function
-        ret_slice = discount_cumsum(rews, self.gamma)[:-1]
-        self.ret_buf[path_slice] = torch.as_tensor(ret_slice.copy()).to(
-            device=self.device, non_blocking=True
-        )
+        self.ret_buf[path_slice] = discount_cumsum(rews, self.gamma)[:-1]
         self.path_start_idx = self.ptr
 
     def sample(self):
@@ -105,19 +84,19 @@ class ReplayBuffer:
         self.ptr, self.path_start_idx = 0, 0
 
         # the next two lines implement the advantage normalization trick
-        adv_mean = torch.mean(self.adv_buf)
-        adv_std = torch.std(self.adv_buf)
+        adv_mean = np.mean(self.adv_buf)
+        adv_std = np.std(self.adv_buf)
         self.adv_buf = (self.adv_buf - adv_mean) / adv_std
 
         data = dict(
-            obs=self.obs_buf.detach(),
-            act=self.act_buf.detach(),
-            ret=self.ret_buf.detach(),
-            adv=self.adv_buf.detach(),
-            logp=self.logp_buf.detach(),
+            obs=self.obs_buf,
+            act=self.act_buf,
+            ret=self.ret_buf,
+            adv=self.adv_buf,
+            logp=self.logp_buf,
         )
 
-        return data
+        return {k: torch.as_tensor(v, dtype=torch.float32) for k, v in data.items()}
 
 
 def discount_cumsum(x, discount):
@@ -133,4 +112,6 @@ def discount_cumsum(x, discount):
          x1 + discount * x2,
          x2]
     """
-    return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
+    result = scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
+
+    return result.copy()

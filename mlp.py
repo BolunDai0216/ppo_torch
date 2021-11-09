@@ -19,7 +19,10 @@ def mlp(nn_sizes: list(), activations: list()) -> nn.Sequential():
         act = activations[i]
         layer_i = nn.Linear(nn_sizes[i], nn_sizes[i + 1])
         layers.append(layer_i)
-        layers.append(act())
+        if act == "None":
+            continue
+        else:
+            layers.append(act())
 
     mlp_model = nn.Sequential(*layers)
 
