@@ -63,7 +63,19 @@ Please use this bibtex if you want to cite this repository in your publications 
 
 
 ## Benchmark
+During training the policy uses a stochastic policy with a fixed convariance matrix, see `tutorial.ipynb`. During testing the policy is deterministic, using the mean of the normal distribution as the action for continuous action space, and using the action with the largest probability for discrete action spaces. This contributes to the difference in training and testing performance.
 
+|Environments|Average Reward|
+|:---|:---|
+|`LunarLanderContinuous-v2`|209.89|
+|`Hopper-v2`|3646.80|
+|`HalfCheetah-v2`|4337.75|
+
+## TODO
+- add GPU support
+- add multi-worker support
+- add more benchmarks for continuous action space
+- add benchmarks for discrete action space 
 
 ## Contact
 If you have any further questions or suggestions, feel free to reach out to me via `bd1555 at nyu dot edu`.

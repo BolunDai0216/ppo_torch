@@ -186,20 +186,32 @@ def main():
     # env = gym.make("HalfCheetah-v2")
     # agent = Train(env, name="halfcheetahv2")
 
-    # env = gym.make("LunarLanderContinuous-v2")
-    # agent = Train(env, name="lunarv2")
+    env = gym.make("LunarLanderContinuous-v2")
+    agent = Train(env, name="lunarv2")
 
     # env = gym.make("Pendulum-v1")
     # agent = Train(env, name="pendulumv1")
 
-    env = gym.make("Hopper-v2")
-    agent = Train(env, name="hopperv2")
+    # env = gym.make("Hopper-v2")
+    # agent = Train(env, name="hopperv2")
 
     # agent.train()
-    reward = agent.test(path="trained_models/hopperv2/20211110-111431/model_1000.pth")
+    # reward = agent.test(path="trained_models/hopperv2/20211110-111431/model_1000.pth")
+    # reward = agent.test(path="trained_models/halfcheetahv2/20211109-161223/model_1000.pth")
+    reward = agent.test(path="trained_models/lunarv2/20211108-231546/model_1000.pth")
+    reward_list = []
     for _ in range(50):
         reward = agent.test(render=False)
         print(f"reward: {reward}")
+        reward_list.append(reward)
+    
+    reward_array = np.array(reward_list)
+    reward_mean = np.mean(reward_array)
+    reward_max_diff = np.amax(reward_array) - reward_mean
+    reward_min_diff = reward_mean - np.amin(reward_array)
+
+    print(f"mean: {reward_mean}, max_diff: {reward_max_diff}, min_diff: {reward_min_diff}")
+
 
 
 if __name__ == "__main__":
