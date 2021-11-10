@@ -88,6 +88,27 @@ class Train:
 
             print(f"Iter: {i}, Reward: {reward}")
 
+    def test(self, render=False, path=None):
+        if path is not None:
+            self.ppo.load(path)
+
+        episode_reward = 0
+        state = self.env.reset()
+
+        for t in range(self.max_size):
+            if render:
+                self.env.render()
+
+            action, _ = self.ppo.get_action(state, test=True)
+            next_state, reward, done, _ = self.env.step(action)
+            episode_reward += reward
+            state = next_state
+
+            if done:
+                break
+
+        return episode_reward
+
     def play(self, render=False):
         state = self.env.reset()
         episode_reward = 0
@@ -137,8 +158,6 @@ class Train:
             loss_pi.backward()
             self.ppo.actor_opt.step()
 
-        # print(f"Actor has been updated {i} times, the KL is {kl}")
-
         for j in range(self.critic_update_iters):
             self.ppo.critic_opt.zero_grad()
             loss_vf = self.ppo.critic_loss(data)
@@ -149,16 +168,22 @@ class Train:
 
 
 def main():
-    # env = gym.make("Reacher-v2")
-    # agent = Train(env, name="reacherv2")
+    env = gym.make("HalfCheetah-v2")
+    agent = Train(env, name="halfcheetahv2")
 
-    env = gym.make("LunarLanderContinuous-v2")
-    agent = Train(env, name="lunarv2")
+    # env = gym.make("LunarLanderContinuous-v2")
+    # agent = Train(env, name="lunarv2")
 
     # env = gym.make("Pendulum-v1")
     # agent = Train(env, name="pendulumv1")
 
-    agent.train()
+    # agent.train()
+    reward = agent.test(
+        path="trained_models/halfcheetahv2/20211109-161223/model_1000.pth"
+    )
+    for _ in range(50):
+        reward = agent.test(render=True)
+        print(f"reward: {reward}")
 
 
 if __name__ == "__main__":

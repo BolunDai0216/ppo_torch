@@ -57,11 +57,16 @@ class PPO:
         self.actor_opt.load_state_dict(checkpoint["actor_opt_state_dict"])
         self.critic_opt.load_state_dict(checkpoint["critic_opt_state_dict"])
 
-    def get_action(self, obs):
+    def get_action(self, obs, test=False):
         with torch.no_grad():
             obs = torch.as_tensor(obs, dtype=torch.float32)
             policy, _ = self.actor(obs)
-            action = policy.sample()
+
+            if test:
+                action = policy.mean
+            else:
+                action = policy.sample()
+
             logp_a = self.actor._log_prob_from_distribution(policy, action)
 
         return action.numpy(), logp_a.item()
