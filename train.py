@@ -180,13 +180,11 @@ def main():
     env = gym.make("Hopper-v2")
     agent = Train(env, name="hopperv2")
 
-    agent.train()
-    # reward = agent.test(
-    #     path="trained_models/halfcheetahv2/20211109-161223/model_1000.pth"
-    # )
-    # for _ in range(50):
-    #     reward = agent.test(render=True)
-    #     print(f"reward: {reward}")
+    # agent.train()
+    reward = agent.test(path="trained_models/hopperv2/20211110-111431/model_1000.pth")
+    for _ in range(50):
+        reward = agent.test(render=False)
+        print(f"reward: {reward}")
 
 
 if __name__ == "__main__":
