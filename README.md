@@ -63,7 +63,7 @@ Please use this bibtex if you want to cite this repository in your publications 
 
 
 ## Benchmark
-During training the policy uses a stochastic policy with a fixed convariance matrix, see `tutorial.ipynb`. During testing the policy is deterministic, using the mean of the normal distribution as the action for continuous action space, and using the action with the largest probability for discrete action spaces. This contributes to the difference in training and testing performance.
+During training the policy uses a stochastic policy with a fixed convariance matrix, see `tutorial.ipynb`. During testing the policy is deterministic, using the mean of the normal distribution as the action for continuous action space, and using the action with the largest probability for discrete action spaces. This contributes to the difference in training and testing performance. All of the performances listed below are using the saved model after 1000 epochs, and averaged over 50 test runs.
 
 |Environments|Average Reward|
 |:---|:---|
