@@ -1,6 +1,5 @@
 from datetime import datetime
 from pathlib import Path
-from pdb import set_trace
 from time import time
 
 import gym

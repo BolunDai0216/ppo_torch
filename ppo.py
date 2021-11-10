@@ -1,5 +1,3 @@
-from pdb import set_trace
-
 import torch
 
 from actor import ActorContinuous, ActorDiscrete
