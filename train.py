@@ -168,8 +168,8 @@ class Train:
 
 
 def main():
-    env = gym.make("HalfCheetah-v2")
-    agent = Train(env, name="halfcheetahv2")
+    # env = gym.make("HalfCheetah-v2")
+    # agent = Train(env, name="halfcheetahv2")
 
     # env = gym.make("LunarLanderContinuous-v2")
     # agent = Train(env, name="lunarv2")
@@ -177,13 +177,16 @@ def main():
     # env = gym.make("Pendulum-v1")
     # agent = Train(env, name="pendulumv1")
 
-    # agent.train()
-    reward = agent.test(
-        path="trained_models/halfcheetahv2/20211109-161223/model_1000.pth"
-    )
-    for _ in range(50):
-        reward = agent.test(render=True)
-        print(f"reward: {reward}")
+    env = gym.make("Hopper-v2")
+    agent = Train(env, name="hopperv2")
+
+    agent.train()
+    # reward = agent.test(
+    #     path="trained_models/halfcheetahv2/20211109-161223/model_1000.pth"
+    # )
+    # for _ in range(50):
+    #     reward = agent.test(render=True)
+    #     print(f"reward: {reward}")
 
 
 if __name__ == "__main__":
