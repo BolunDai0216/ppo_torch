@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from torch.distributions.categorical import Categorical
 from torch.distributions.multivariate_normal import MultivariateNormal
-from torch.distributions.normal import Normal
 
 from mlp import mlp
 
@@ -14,7 +13,6 @@ class Actor(torch.nn.Module):
         pi = self._distribution(obs)
 
         if act is not None:
-            # used only during gradient calculation
             log_prob = self._log_prob_from_distribution(pi, act)
         else:
             log_prob = None
@@ -43,6 +41,7 @@ class ActorContinuous(Actor):
         self.activations = activations
         self.net = mlp(self.feature_sizes, self.activations)
 
+        # fixed standard deviation with variance of 0.2
         std = 0.04 * np.ones(act_dim, dtype=np.float32)
         std = torch.as_tensor(std)
         self.cov_mat = torch.diag(std).detach()
