@@ -63,6 +63,7 @@ class PPO:
             policy, _ = self.actor(obs)
 
             if test:
+                # during testing use deterministic action
                 action = policy.mean
             else:
                 action = policy.sample()
@@ -83,13 +84,12 @@ class PPO:
 
         # Policy loss
         pi, logp = self.actor(obs, act)
-        ratio = torch.exp(logp - logp_old.detach())
+        ratio = torch.exp(logp - logp_old.detach())  # pi / pi_old
         clip_adv = torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio) * adv
         loss_pi = -(torch.min(ratio * adv, clip_adv)).mean()
 
         # Useful extra info
         approx_kl = (logp_old - logp).mean().item()
-        # set_trace()
 
         return loss_pi, approx_kl
 

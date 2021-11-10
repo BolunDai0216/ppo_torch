@@ -25,6 +25,31 @@ There are total of 6 files, with the following dependecy structure
 - `replay_buffer.py` creates the replay buffer, and has the utility function to compute the generalized advantage estimation (GAE)
 - `train.py` defines the training loop, the update loop and testing function
 
+
+## Usage
+For training the model use the following code
+```
+from train import Train
+import gym
+
+env = gym.make("HalfCheetah-v2")
+agent = Train(env, name="halfcheetah_v2")
+agent.train()
+```
+
+For testing use the following code
+```
+from train import Train
+import gym
+
+env = gym.make("HalfCheetah-v2")
+agent = Train(env, name="halfcheetahv2")
+agent.train()
+
+model_path = "PATH/TO/MODEL/model_n.pth"
+reward = agent.test(path=model_path)
+```
+
 ## Citing 
 Please use this bibtex if you want to cite this repository in your publications :
 

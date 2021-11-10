@@ -26,6 +26,12 @@ class Train:
         actor_update_iters=80,
         critic_update_iters=80,
         epoch_num=10000,
+        gamma = 0.99,
+        lam = 0.95,
+        clip_ratio=0.2,
+        target_kl=0.01,
+        actor_lr=3e-4,
+        critic_lr=1e-3,
     ):
         if isinstance(env.action_space, Box):
             continuous_env = True
@@ -44,11 +50,15 @@ class Train:
             actor_activations,
             critic_activations,
             continuous=continuous_env,
+            clip_ratio=clip_ratio,
+            target_kl=target_kl,
+            actor_lr=actor_lr,
+            critic_lr=critic_lr,
         )
 
         self.env = env
         self.max_size = self.env._max_episode_steps
-        self.buffer = ReplayBuffer(self.obs_dim, self.act_dim, 4 * self.max_size)
+        self.buffer = ReplayBuffer(self.obs_dim, self.act_dim, 4 * self.max_size, gamma=gamma, lam=lam)
 
         self.actor_update_iters = actor_update_iters
         self.critic_update_iters = critic_update_iters
@@ -118,10 +128,11 @@ class Train:
             if render:
                 self.env.render()
 
-            # make state tensor have correct shape and move to device
+            # get action and value function
             action, logp_a = self.ppo.get_action(state)
             value = self.ppo.get_value(state)
 
+            # step and record reward
             next_state, reward, done, _ = self.env.step(action)
             episode_reward += reward
 
@@ -131,6 +142,7 @@ class Train:
             # update state
             state = next_state
 
+            # update when the buffer is full
             if self.buffer.ptr == self.buffer.max_size:
                 buffer_full = True
                 break
@@ -138,8 +150,11 @@ class Train:
             if done:
                 break
 
+        # if the agent did not reach terminal state
+        # value function of last state is not zero
         if buffer_full or t == self.max_size - 1:
             last_v = self.ppo.get_value(state)
+        # value function for terminal state is zero
         else:
             last_v = 0.0
 
@@ -153,6 +168,7 @@ class Train:
         for i in range(self.actor_update_iters):
             self.ppo.actor_opt.zero_grad()
             loss_pi, kl = self.ppo.actor_loss(data)
+            # stop updating after large KL divergence
             if kl > 1.5 * self.ppo.target_kl:
                 break
             loss_pi.backward()
