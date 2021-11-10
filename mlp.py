@@ -1,7 +1,7 @@
 from torch import nn
 
 
-def mlp(nn_sizes: list(), activations: list()) -> nn.Sequential():
+def mlp(nn_sizes, activations):
     """
     feature_sizes: a list of the size of each layer of the mlp
     activations: a list of the activation functions for each layer of the mlp
