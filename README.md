@@ -10,13 +10,13 @@ Since this is a minimal implementation, it has the following limitations:
 ## Code Structure
 There are total of 6 files, with the following dependecy structure
 
-    _train.py
-    ├──_ppo.py
-    │  ├──_actor.py
-    │  │  ├── mlp.py
-    │  ├──_critic.py
-    │     ├── mlp.py
-    ├──── replay_buffer.py
+    train.py
+    ├──ppo.py
+    │  ├──actor.py
+    │  │  └──mlp.py
+    │  └──critic.py
+    │     └──mlp.py
+    └──replay_buffer.py
 
 - `mlp.py` defines `mlp()` which creates a neural network with given sizes and activation functions
 - `actor.py` creates the actor model for both continuous and discrete action space
