@@ -44,7 +44,6 @@ import gym
 
 env = gym.make("HalfCheetah-v2")
 agent = Train(env, name="halfcheetahv2")
-agent.train()
 
 model_path = "PATH/TO/MODEL/model_n.pth"
 reward = agent.test(path=model_path)
