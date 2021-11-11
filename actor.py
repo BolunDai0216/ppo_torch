@@ -39,8 +39,8 @@ class ActorContinuous(Actor):
         self.activations = activations
         self.net = mlp(self.feature_sizes, self.activations)
 
-        # fixed standard deviation with variance of 0.2
-        std = 0.04 * np.ones(act_dim, dtype=np.float32)
+        # fixed standard deviation with of 0.1
+        std = 0.1 * np.ones(act_dim, dtype=np.float32)
         std = torch.as_tensor(std)
         self.cov_mat = torch.diag(std).detach()
 
@@ -78,6 +78,7 @@ class ActorDiscrete(Actor):
         return distribution
 
     def _log_prob_from_distribution(self, pi, act):
+        act = act.squeeze()
         log_prob = pi.log_prob(act)
 
         return log_prob

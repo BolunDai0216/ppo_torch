@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from pdb import set_trace
 from time import time
 
 import gym
@@ -7,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 import torch
 from gym.spaces import Box, Discrete
+from gym.wrappers import Monitor
 from torch import nn
 
 from ppo import PPO
@@ -25,19 +27,22 @@ class Train:
         actor_update_iters=80,
         critic_update_iters=80,
         epoch_num=10000,
-        gamma = 0.99,
-        lam = 0.95,
+        gamma=0.99,
+        lam=0.95,
         clip_ratio=0.2,
         target_kl=0.01,
         actor_lr=3e-4,
         critic_lr=1e-3,
+        save_freq=1000,
     ):
         if isinstance(env.action_space, Box):
             continuous_env = True
             self.act_dim = env.action_space.shape[0]
+            self.buffer_act_dim = self.act_dim
         elif isinstance(env.action_space, Discrete):
             continuous_env = False
             self.act_dim = env.action_space.n
+            self.buffer_act_dim = 1
 
         self.obs_dim = env.observation_space.shape[0]
 
@@ -57,7 +62,9 @@ class Train:
 
         self.env = env
         self.max_size = self.env._max_episode_steps
-        self.buffer = ReplayBuffer(self.obs_dim, self.act_dim, 4 * self.max_size, gamma=gamma, lam=lam)
+        self.buffer = ReplayBuffer(
+            self.obs_dim, self.buffer_act_dim, 4 * self.max_size, gamma=gamma, lam=lam
+        )
 
         self.actor_update_iters = actor_update_iters
         self.critic_update_iters = critic_update_iters
@@ -68,6 +75,7 @@ class Train:
             parents=True, exist_ok=True
         )
         self.epoch_num = epoch_num
+        self.save_freq = save_freq
 
     def train(self):
         train_log_dir = "logs/" + self.name + "/" + self.stamp + "/train"
@@ -84,7 +92,7 @@ class Train:
 
             loss_pi, loss_vf = self.update()
 
-            if (i + 1) % 1000 == 0:
+            if (i + 1) % self.save_freq == 0:
                 filename = "trained_models/{}/{}/model_{}.pth".format(
                     self.name, self.stamp, i + 1
                 )
@@ -101,6 +109,9 @@ class Train:
         if path is not None:
             self.ppo.load(path)
 
+        state_list = []
+        action_list = []
+
         episode_reward = 0
         state = self.env.reset()
 
@@ -111,12 +122,20 @@ class Train:
             action, _ = self.ppo.get_action(state, test=True)
             next_state, reward, done, _ = self.env.step(action)
             episode_reward += reward
+
+            state_list.append(state[:, np.newaxis])
+            action_list.append(action[:, np.newaxis])
             state = next_state
 
             if done:
                 break
 
-        return episode_reward
+        if render:
+            self.env.close()
+
+        history = {"state": state_list, "action": action_list}
+
+        return episode_reward, history
 
     def play(self, render=False):
         state = self.env.reset()
@@ -183,11 +202,14 @@ class Train:
 
 
 def main():
+    env = gym.make("CartPole-v1")
+    agent = Train(env, name="cartpolev1")
+
     # env = gym.make("HalfCheetah-v2")
     # agent = Train(env, name="halfcheetahv2")
 
-    env = gym.make("LunarLanderContinuous-v2")
-    agent = Train(env, name="lunarv2")
+    # env = gym.make("LunarLanderContinuous-v2")
+    # agent = Train(env, name="lunarv2")
 
     # env = gym.make("Pendulum-v1")
     # agent = Train(env, name="pendulumv1")
@@ -195,23 +217,29 @@ def main():
     # env = gym.make("Hopper-v2")
     # agent = Train(env, name="hopperv2")
 
-    # agent.train()
-    # reward = agent.test(path="trained_models/hopperv2/20211110-111431/model_1000.pth")
+    agent.train()
+    # reward, history = agent.test(
+    #     render=True, path="trained_models/hopperv2/20211110-111431/model_1000.pth"
+    # )
+    # print(reward)
+
     # reward = agent.test(path="trained_models/halfcheetahv2/20211109-161223/model_1000.pth")
-    reward = agent.test(path="trained_models/lunarv2/20211108-231546/model_1000.pth")
-    reward_list = []
-    for _ in range(50):
-        reward = agent.test(render=False)
-        print(f"reward: {reward}")
-        reward_list.append(reward)
-    
-    reward_array = np.array(reward_list)
-    reward_mean = np.mean(reward_array)
-    reward_max_diff = np.amax(reward_array) - reward_mean
-    reward_min_diff = reward_mean - np.amin(reward_array)
+    # reward = agent.test(path="trained_models/lunarv2/20211108-231546/model_1000.pth")
+    # print(reward)
+    # reward_list = []
+    # for _ in range(50):
+    #     reward = agent.test(render=False)
+    #     print(f"reward: {reward}")
+    #     reward_list.append(reward)
 
-    print(f"mean: {reward_mean}, max_diff: {reward_max_diff}, min_diff: {reward_min_diff}")
+    # reward_array = np.array(reward_list)
+    # reward_mean = np.mean(reward_array)
+    # reward_max_diff = np.amax(reward_array) - reward_mean
+    # reward_min_diff = reward_mean - np.amin(reward_array)
 
+    # print(
+    #     f"mean: {reward_mean}, max_diff: {reward_max_diff}, min_diff: {reward_min_diff}"
+    # )
 
 
 if __name__ == "__main__":
