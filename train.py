@@ -105,7 +105,7 @@ class Train:
 
             print(f"Iter: {i}, Reward: {reward}")
 
-    def test(self, render=False, path=None):
+    def test(self, render=False, path=None, mode="human"):
         if path is not None:
             self.ppo.load(path)
 
@@ -117,14 +117,18 @@ class Train:
 
         for t in range(self.max_size):
             if render:
-                self.env.render()
+                self.env.render(mode=mode)
 
             action, _ = self.ppo.get_action(state, test=True)
             next_state, reward, done, _ = self.env.step(action)
             episode_reward += reward
 
             state_list.append(state[:, np.newaxis])
-            action_list.append(action[:, np.newaxis])
+            if self.ppo.continuous:
+                action_list.append(action[:, np.newaxis])
+            else:
+                action_list.append(action)
+
             state = next_state
 
             if done:
@@ -203,7 +207,7 @@ class Train:
 
 def main():
     env = gym.make("CartPole-v1")
-    agent = Train(env, name="cartpolev1")
+    agent = Train(env, name="cartpolev1", save_freq=100)
 
     # env = gym.make("HalfCheetah-v2")
     # agent = Train(env, name="halfcheetahv2")
@@ -217,7 +221,7 @@ def main():
     # env = gym.make("Hopper-v2")
     # agent = Train(env, name="hopperv2")
 
-    agent.train()
+    # agent.train()
     # reward, history = agent.test(
     #     render=True, path="trained_models/hopperv2/20211110-111431/model_1000.pth"
     # )
@@ -226,20 +230,23 @@ def main():
     # reward = agent.test(path="trained_models/halfcheetahv2/20211109-161223/model_1000.pth")
     # reward = agent.test(path="trained_models/lunarv2/20211108-231546/model_1000.pth")
     # print(reward)
-    # reward_list = []
-    # for _ in range(50):
-    #     reward = agent.test(render=False)
-    #     print(f"reward: {reward}")
-    #     reward_list.append(reward)
+    reward_list = []
+    reward = agent.test(
+        render=False, path="trained_models/cartpolev1/20211111-170918/model_100.pth"
+    )
+    for _ in range(50):
+        reward, history = agent.test(render=False)
+        print(f"reward: {reward}")
+        reward_list.append(reward)
 
-    # reward_array = np.array(reward_list)
-    # reward_mean = np.mean(reward_array)
-    # reward_max_diff = np.amax(reward_array) - reward_mean
-    # reward_min_diff = reward_mean - np.amin(reward_array)
+    reward_array = np.array(reward_list)
+    reward_mean = np.mean(reward_array)
+    reward_max_diff = np.amax(reward_array) - reward_mean
+    reward_min_diff = reward_mean - np.amin(reward_array)
 
-    # print(
-    #     f"mean: {reward_mean}, max_diff: {reward_max_diff}, min_diff: {reward_min_diff}"
-    # )
+    print(
+        f"mean: {reward_mean}, max_diff: {reward_max_diff}, min_diff: {reward_min_diff}"
+    )
 
 
 if __name__ == "__main__":

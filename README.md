@@ -70,6 +70,7 @@ During training the policy uses a stochastic policy with a fixed convariance mat
 |`LunarLanderContinuous-v2`|209.89|
 |`Hopper-v2`|3646.80|
 |`HalfCheetah-v2`|4337.75|
+|`CartPole-v1`|500.00|
 
 ## TODO
 - add GPU support

@@ -32,6 +32,8 @@ class PPO:
                 obs_dim, act_dim, actor_hidden_dim, actor_activations
             )
 
+        self.continuous = continuous
+
         self.clip_ratio = clip_ratio
         self.target_kl = target_kl
 
@@ -62,8 +64,11 @@ class PPO:
             policy, _ = self.actor(obs)
 
             if test:
-                # during testing use deterministic action
-                action = policy.mean
+                if self.continuous:
+                    # during testing use deterministic action
+                    action = policy.mean
+                else:
+                    action = torch.argmax(policy.probs)
             else:
                 action = policy.sample()
 
