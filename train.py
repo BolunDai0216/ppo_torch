@@ -206,8 +206,11 @@ class Train:
 
 
 def main():
-    env = gym.make("CartPole-v1")
-    agent = Train(env, name="cartpolev1", save_freq=100)
+    # env = gym.make("CartPole-v1")
+    # agent = Train(env, name="cartpolev1", save_freq=100)
+
+    env = gym.make("LunarLander-v2")
+    agent = Train(env, name="lunardisv2", save_freq=100)
 
     # env = gym.make("HalfCheetah-v2")
     # agent = Train(env, name="halfcheetahv2")
@@ -222,18 +225,18 @@ def main():
     # agent = Train(env, name="hopperv2")
 
     # agent.train()
-    # reward, history = agent.test(
-    #     render=True, path="trained_models/hopperv2/20211110-111431/model_1000.pth"
-    # )
+    reward, history = agent.test(
+        render=False, path="trained_models/lunardisv2/20211111-181353/model_1000.pth"
+    )
     # print(reward)
 
     # reward = agent.test(path="trained_models/halfcheetahv2/20211109-161223/model_1000.pth")
     # reward = agent.test(path="trained_models/lunarv2/20211108-231546/model_1000.pth")
     # print(reward)
     reward_list = []
-    reward = agent.test(
-        render=False, path="trained_models/cartpolev1/20211111-170918/model_100.pth"
-    )
+    # reward = agent.test(
+    #     render=False, path="trained_models/cartpolev1/20211111-170918/model_100.pth"
+    # )
     for _ in range(50):
         reward, history = agent.test(render=False)
         print(f"reward: {reward}")
