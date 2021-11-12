@@ -73,6 +73,8 @@ During training the policy uses a stochastic policy with a fixed convariance mat
 | `CartPole-v1`              | 500.00         |
 | `LunarLander-v2`           | 199.18         |
 
+The trained models can be found in the `benchmark_models` folder.
+
 ## TODO
 - add GPU support
 - add multi-worker support

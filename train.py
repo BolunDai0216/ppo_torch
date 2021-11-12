@@ -35,6 +35,7 @@ class Train:
         critic_lr=1e-3,
         save_freq=1000,
     ):
+        # get action space from env
         if isinstance(env.action_space, Box):
             continuous_env = True
             self.act_dim = env.action_space.shape[0]
@@ -44,8 +45,10 @@ class Train:
             self.act_dim = env.action_space.n
             self.buffer_act_dim = 1
 
+        # get observation space from env
         self.obs_dim = env.observation_space.shape[0]
 
+        # create PPO object
         self.ppo = PPO(
             self.obs_dim,
             self.act_dim,
@@ -60,15 +63,14 @@ class Train:
             critic_lr=critic_lr,
         )
 
+        # create replay buffer
         self.env = env
         self.max_size = self.env._max_episode_steps
         self.buffer = ReplayBuffer(
             self.obs_dim, self.buffer_act_dim, 4 * self.max_size, gamma=gamma, lam=lam
         )
 
-        self.actor_update_iters = actor_update_iters
-        self.critic_update_iters = critic_update_iters
-
+        # define variables from saving and updating model parameters
         self.name = name
         self.stamp = datetime.fromtimestamp(time()).strftime("%Y%m%d-%H%M%S")
         Path("trained_models/{}/{}".format(self.name, self.stamp)).mkdir(
@@ -76,33 +78,40 @@ class Train:
         )
         self.epoch_num = epoch_num
         self.save_freq = save_freq
+        self.actor_update_iters = actor_update_iters
+        self.critic_update_iters = critic_update_iters
 
     def train(self):
+        # create tensorboard logger
         train_log_dir = "logs/" + self.name + "/" + self.stamp + "/train"
         train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
-        len_sum = 0
-
+        # main training loop
         for i in range(self.epoch_num):
+            # wait till replay buffer is full
             while True:
                 reward, buffer_full = self.play()
 
                 if buffer_full:
                     break
 
+            # update model parameters
             loss_pi, loss_vf = self.update()
 
+            # save model parameters
             if (i + 1) % self.save_freq == 0:
                 filename = "trained_models/{}/{}/model_{}.pth".format(
                     self.name, self.stamp, i + 1
                 )
                 self.ppo.save(filename)
 
+            # log training process to tensorboard
             with train_summary_writer.as_default():
                 tf.summary.scalar("Reward", reward, step=i)
                 tf.summary.scalar("Actor Loss", loss_pi, step=i)
                 tf.summary.scalar("Critic Loss", loss_vf, step=i)
 
+            # print training process to console
             print(f"Iter: {i}, Reward: {reward}")
 
     def test(self, render=False, path=None, mode="human"):
@@ -172,8 +181,7 @@ class Train:
             if done:
                 break
 
-        # if the agent did not reach terminal state
-        # value function of last state is not zero
+        # if the agent did not reach terminal state value function of last state is not zero
         if buffer_full or t == self.max_size - 1:
             last_v = self.ppo.get_value(state)
         # value function for terminal state is zero
@@ -187,6 +195,7 @@ class Train:
     def update(self):
         data = self.buffer.sample()
 
+        # update actor weights
         for i in range(self.actor_update_iters):
             self.ppo.actor_opt.zero_grad()
             loss_pi, kl = self.ppo.actor_loss(data)
@@ -196,6 +205,7 @@ class Train:
             loss_pi.backward()
             self.ppo.actor_opt.step()
 
+        # update critic weights
         for j in range(self.critic_update_iters):
             self.ppo.critic_opt.zero_grad()
             loss_vf = self.ppo.critic_loss(data)
@@ -203,54 +213,3 @@ class Train:
             self.ppo.critic_opt.step()
 
         return loss_pi.detach().item(), loss_vf.detach().item()
-
-
-def main():
-    # env = gym.make("CartPole-v1")
-    # agent = Train(env, name="cartpolev1", save_freq=100)
-
-    env = gym.make("LunarLander-v2")
-    agent = Train(env, name="lunardisv2", save_freq=100)
-
-    # env = gym.make("HalfCheetah-v2")
-    # agent = Train(env, name="halfcheetahv2")
-
-    # env = gym.make("LunarLanderContinuous-v2")
-    # agent = Train(env, name="lunarv2")
-
-    # env = gym.make("Pendulum-v1")
-    # agent = Train(env, name="pendulumv1")
-
-    # env = gym.make("Hopper-v2")
-    # agent = Train(env, name="hopperv2")
-
-    # agent.train()
-    reward, history = agent.test(
-        render=False, path="trained_models/lunardisv2/20211111-181353/model_1000.pth"
-    )
-    # print(reward)
-
-    # reward = agent.test(path="trained_models/halfcheetahv2/20211109-161223/model_1000.pth")
-    # reward = agent.test(path="trained_models/lunarv2/20211108-231546/model_1000.pth")
-    # print(reward)
-    reward_list = []
-    # reward = agent.test(
-    #     render=False, path="trained_models/cartpolev1/20211111-170918/model_100.pth"
-    # )
-    for _ in range(50):
-        reward, history = agent.test(render=False)
-        print(f"reward: {reward}")
-        reward_list.append(reward)
-
-    reward_array = np.array(reward_list)
-    reward_mean = np.mean(reward_array)
-    reward_max_diff = np.amax(reward_array) - reward_mean
-    reward_min_diff = reward_mean - np.amin(reward_array)
-
-    print(
-        f"mean: {reward_mean}, max_diff: {reward_max_diff}, min_diff: {reward_min_diff}"
-    )
-
-
-if __name__ == "__main__":
-    main()
