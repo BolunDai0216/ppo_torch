@@ -6,6 +6,8 @@ Since this is a minimal implementation, it has the following limitations:
 - given the need to interact with gym environments, all of the calculations are performed on CPU (GPU support is planned).
 - only one worker is used (also planning for multi-worker, but I need to better understand how it works).
 
+And if you like my implementation please consider giving it a star, if don't like it would nice to hear from you and give me some suggestions.
+
 
 ## Code Structure
 There are total of 6 files, with the following dependecy structure
